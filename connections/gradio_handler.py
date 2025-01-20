@@ -9,8 +9,8 @@ class GradioHandler:
     def __init__(
         self,
         stop_event: threading.Event,
-        queue_in: Optional[queue.Queue] = None,  # 可能不需要输入队列
-        queue_out: Optional[queue.Queue] = None,  # 用于显示日志
+        queue_in: Optional[queue.Queue] = None,
+        queue_out: Optional[queue.Queue] = None,
         host: str = "0.0.0.0",
         port: int = 7860,
     ):
@@ -19,7 +19,7 @@ class GradioHandler:
         self.host = host
         self.port = port
         self.logger = logging.getLogger(__name__)
-        self.ready_event = threading.Event()  # 添加就绪事件
+        self.ready_event = threading.Event()  # 用于标记 Gradio 是否完全启动
 
     def update_logs(self):
         logs = []
@@ -77,16 +77,21 @@ class GradioHandler:
             self.logger.info(f"Gradio 本地访问地址: {local_url}")
             if hasattr(interface, "share_url") and interface.share_url:
                 self.logger.info(f"Gradio 公共访问地址: {interface.share_url}")
-            self.ready_event.set()  # 标记 Gradio 已就绪
+            self.logger.info("Gradio 界面启动完成")
+            # 标记 Gradio 已完全启动
+            self.ready_event.set()
 
         # 在新线程中启动 Gradio
         gradio_thread = threading.Thread(target=start_gradio)
         gradio_thread.daemon = True
         gradio_thread.start()
 
-        # 等待 Gradio 完全启动
-        self.ready_event.wait(timeout=30)  # 设置超时时间为30秒
-        self.logger.info("Gradio 界面启动完成")
+        # 主线程等待 Gradio 完全启动
+        if not self.ready_event.wait(timeout=30):  # 设置超时时间为30秒
+            self.logger.warning("Gradio 界面启动超时")
+            return False
+        
+        return True  # 返回启动成功的标志
 
 def build_pipeline(
     module_kwargs,
