@@ -1,0 +1,15 @@
+nltk==3.2.4  # 改为与 preprocessing 兼容的版本
+parler_tts @ git+https://github.com/huggingface/parler-tts.git
+melotts @ git+https://github.com/andimarafioti/MeloTTS.git#egg=MeloTTS
+torch>=2.4.0
+sounddevice==0.5.0
+ChatTTS>=0.1.1
+funasr>=1.1.6
+faster-whisper>=1.0.3
+modelscope>=1.17.1
+deepfilternet>=0.5.6
+openai>=1.40.1
+useful-moonshine @ git+https://github.com/andimarafioti/moonshine.git
+networkx==2.8.8  # 固定版本以避免冲突
+matplotlib==3.7.5  # 固定版本以避免冲突
+scikit-learn==1.2.2  # 固定版本以避免冲突
