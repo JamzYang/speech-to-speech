@@ -6,22 +6,31 @@ import time
 import logging
 
 def start_s2s_service(log_queue):
+    logging.info("正在启动语音服务进程...")
+    
     # 启动语音服务进程，并捕获输出
     process = subprocess.Popen([
         "python", "s2s_pipeline.py",
         "--recv_host", "127.0.0.1",
         "--send_host", "127.0.0.1"
-    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
     
     # 读取输出日志的函数
-    def read_output(pipe, queue):
-        for line in pipe:
-            queue.put(line.strip())
+    def read_output(pipe, queue, prefix=''):
+        try:
+            for line in pipe:
+                line = line.strip()
+                if line:
+                    # 将子进程的输出作为日志记录
+                    logging.info(f"{prefix}{line}")
+        except Exception as e:
+            logging.error(f"读取管道时发生错误: {e}")
     
     # 启动读取输出的线程
-    threading.Thread(target=read_output, args=(process.stdout, log_queue), daemon=True).start()
-    threading.Thread(target=read_output, args=(process.stderr, log_queue), daemon=True).start()
+    threading.Thread(target=read_output, args=(process.stdout, log_queue, '[s2s] '), daemon=True).start()
+    threading.Thread(target=read_output, args=(process.stderr, log_queue, '[s2s][ERROR] '), daemon=True).start()
     
+    logging.info("语音服务进程已启动")
     return process
 
 # 创建一个自定义的日志处理器
@@ -37,27 +46,21 @@ class QueueHandler(logging.Handler):
 def run_service():
     log_queue = Queue()
     
-    def update_logs():
-        logs = []
-        while True:
-            try:
-                # 非阻塞方式获取日志
-                while not log_queue.empty():
-                    log = log_queue.get_nowait()
-                    logs.append(log)
-                # 只保留最新的100行日志
-                logs = logs[-100:]
-                return "\n".join(logs)
-            except:
-                return "\n".join(logs)
-    
     # 配置日志处理
-    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    
+    # 添加控制台处理器
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    
+    # 添加队列处理器
     queue_handler = QueueHandler(log_queue)
     queue_handler.setFormatter(formatter)
     
-    # 添加处理器到根日志记录器
+    # 配置根日志记录器
     root_logger = logging.getLogger()
+    root_logger.handlers = []  # 清除现有处理器
+    root_logger.addHandler(console_handler)
     root_logger.addHandler(queue_handler)
     root_logger.setLevel(logging.INFO)
     
@@ -84,7 +87,7 @@ def run_service():
         
         # 创建一个隐藏的更新按钮
         update_btn = gr.Button(visible=False)
-        update_btn.click(fn=update_logs, inputs=None, outputs=logs)
+        update_btn.click(fn=lambda: logs.value = update_logs(), inputs=None, outputs=logs)
         
         # 添加自动点击脚本
         demo.load(js="""
