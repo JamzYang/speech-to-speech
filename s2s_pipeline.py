@@ -34,6 +34,7 @@ from transformers import (
 )
 
 from utils.thread_manager import ThreadManager
+from connections.gradio_handler import GradioHandler
 
 # Ensure that the necessary NLTK resources are available
 try:
@@ -213,6 +214,7 @@ def initialize_queues_and_events():
         "spoken_prompt_queue": Queue(),
         "text_prompt_queue": Queue(),
         "lm_response_queue": Queue(),
+        "log_queue": Queue(),
     }
 
 
@@ -240,6 +242,17 @@ def build_pipeline(
     spoken_prompt_queue = queues_and_events["spoken_prompt_queue"]
     text_prompt_queue = queues_and_events["text_prompt_queue"]
     lm_response_queue = queues_and_events["lm_response_queue"]
+    log_queue = queues_and_events["log_queue"]
+    
+    handlers = [
+        GradioHandler(
+            stop_event,
+            queue_out=log_queue,
+            host="0.0.0.0",
+            port=7860
+        )
+    ]
+
     if module_kwargs.mode == "local":
         from connections.local_audio_streamer import LocalAudioStreamer
 
@@ -475,8 +488,16 @@ def main():
 
     try:
         pipeline_manager.start()
-    except KeyboardInterrupt:
+        while not queues_and_events["stop_event"].is_set():
+            try:
+                queues_and_events["stop_event"].wait(1)
+            except KeyboardInterrupt:
+                logging.info("收到停止信号")
+                queues_and_events["stop_event"].set()
+                break
+    finally:
         pipeline_manager.stop()
+        logging.info("Pipeline 已停止")
 
 
 if __name__ == "__main__":
