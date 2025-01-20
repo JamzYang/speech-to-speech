@@ -4,7 +4,14 @@ import threading
 import time
 import gradio as gr
 import sys
+import os
+from pathlib import Path
 from s2s_pipeline import main, parse_arguments  # 导入必要的函数
+
+# 添加项目根目录到 Python 路径
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.append(str(CURRENT_DIR))
 
 # 创建全局日志队列
 log_queue = queue.Queue()
@@ -52,18 +59,23 @@ def update_logs():
     return gr.update()
 
 def run_s2s_pipeline(log_queue):
-    # 使用系统参数来初始化 pipeline
+    # 确保在正确的工作目录下运行
+    original_cwd = os.getcwd()
+    os.chdir(CURRENT_DIR)  # 切换到脚本所在目录
+    
+    # 设置命令行参数
     sys.argv = [
-        sys.argv[0],  # 保持原始脚本名
+        sys.argv[0],
         "--recv_host", "0.0.0.0",
         "--send_host", "0.0.0.0"
     ]
     
     try:
-        # 直接调用 main 函数
         main()
     except Exception as e:
         logging.error(f"Pipeline 执行出错: {str(e)}")
+    finally:
+        os.chdir(original_cwd)  # 恢复原始工作目录
 
 def run_service():
     setup_logging()
