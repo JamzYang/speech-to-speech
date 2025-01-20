@@ -3,7 +3,8 @@ import queue
 import threading
 import time
 import gradio as gr
-from mock_service import mock_service
+import sys
+from s2s_pipeline import main, parse_arguments  # 导入必要的函数
 
 # 创建全局日志队列
 log_queue = queue.Queue()
@@ -22,17 +23,14 @@ class QueueHandler(logging.Handler):
             self.handleError(record)
 
 def setup_logging():
-    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     
-    # 配置队列处理器
     queue_handler = QueueHandler(log_queue)
     queue_handler.setFormatter(formatter)
     
-    # 配置控制台处理器
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     
-    # 配置根日志记录器
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
     root_logger.addHandler(queue_handler)
@@ -53,19 +51,33 @@ def update_logs():
         return "\n".join(logs)
     return gr.update()
 
+def run_s2s_pipeline(log_queue):
+    # 使用系统参数来初始化 pipeline
+    sys.argv = [
+        sys.argv[0],  # 保持原始脚本名
+        "--recv_host", "0.0.0.0",
+        "--send_host", "0.0.0.0"
+    ]
+    
+    try:
+        # 直接调用 main 函数
+        main()
+    except Exception as e:
+        logging.error(f"Pipeline 执行出错: {str(e)}")
+
 def run_service():
     setup_logging()
     
     with gr.Blocks() as demo:
-        gr.Markdown("## 测试服务已启动")
-        gr.Markdown("这是一个测试日志输出的演示")
+        gr.Markdown("## S2S Pipeline 服务监控")
+        gr.Markdown("实时查看 s2s_pipeline 服务运行状态")
         
         status = gr.Textbox(label="服务状态", value="运行中")
         logs = gr.Textbox(
             label="服务日志",
             value="初始化中...\n",
-            lines=10,
-            max_lines=100,
+            lines=15,
+            max_lines=200,
             autoscroll=True
         )
         
@@ -81,12 +93,12 @@ def run_service():
             }
         """)
         
-        # 启动模拟服务线程
-        service_thread = threading.Thread(target=lambda: mock_service(log_queue))
-        service_thread.daemon = True
-        service_thread.start()
+        # 使用和 test_logging.py 相同的方式启动服务
+        pipeline_thread = threading.Thread(target=lambda: run_s2s_pipeline(log_queue))
+        pipeline_thread.daemon = True
+        pipeline_thread.start()
         
-        logging.info("模拟服务线程已启动")
+        logging.info("S2S Pipeline 服务已启动")
     
     demo.queue()
     demo.launch(share=True, server_name="0.0.0.0")
