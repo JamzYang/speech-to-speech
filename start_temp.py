@@ -3,6 +3,7 @@ import threading
 import subprocess
 from queue import Queue
 import time
+import logging
 
 def start_s2s_service(log_queue):
     # 启动语音服务进程，并捕获输出
@@ -23,6 +24,16 @@ def start_s2s_service(log_queue):
     
     return process
 
+# 创建一个自定义的日志处理器
+class QueueHandler(logging.Handler):
+    def __init__(self, queue):
+        super().__init__()
+        self.queue = queue
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.queue.put(msg)
+
 def run_service():
     log_queue = Queue()
     
@@ -40,6 +51,20 @@ def run_service():
             except:
                 return "\n".join(logs)
     
+    # 配置日志处理
+    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.setFormatter(formatter)
+    
+    # 添加处理器到根日志记录器
+    root_logger = logging.getLogger()
+    root_logger.addHandler(queue_handler)
+    root_logger.setLevel(logging.INFO)
+    
+    # 确保 connections 模块的日志也被捕获
+    connections_logger = logging.getLogger('connections')
+    connections_logger.setLevel(logging.INFO)
+    
     # 创建简单的 Gradio 界面
     with gr.Blocks() as demo:
         gr.Markdown("## 语音对话服务已启动")
@@ -49,7 +74,13 @@ def run_service():
         # 添加状态显示
         status = gr.Textbox(label="服务状态", value="运行中")
         # 添加日志显示
-        logs = gr.Textbox(label="服务日志", value="", lines=10)
+        logs = gr.Textbox(
+            label="服务日志",
+            value="",
+            lines=10,
+            max_lines=100,
+            autoscroll=True
+        )
         
         # 创建一个隐藏的更新按钮
         update_btn = gr.Button(visible=False)
@@ -59,8 +90,9 @@ def run_service():
         demo.load(js="""
             function() {
                 setInterval(function(){
-                    document.querySelector('button').click();
-                }, 1000);
+                    const btn = document.querySelector('button');
+                    if(btn) btn.click();
+                }, 500);
             }
         """)
         
