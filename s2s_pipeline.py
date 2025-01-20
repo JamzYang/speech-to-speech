@@ -246,15 +246,20 @@ def build_pipeline(
     
     # 创建 handlers 列表并添加 GradioHandler
     logger.info("正在初始化 Gradio 界面...")
-    handlers = [
-        GradioHandler(
-            stop_event,
-            queue_out=log_queue,
-            host="0.0.0.0",
-            port=7860
-        )
-    ]
-    logger.warn("Gradio 界面初始化完成")
+    gradio_handler = GradioHandler(
+        stop_event,
+        queue_out=log_queue,
+        host="0.0.0.0",
+        port=7860
+    )
+
+    # 运行 Gradio
+    if not gradio_handler.run():
+        logger.error("Gradio 界面启动失败")
+        return None
+
+    handlers = [gradio_handler]
+    logger.info("Gradio 界面初始化完成")
 
     # 初始化其他组件
     logger.info("正在初始化其他组件...")
