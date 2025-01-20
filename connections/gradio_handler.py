@@ -33,6 +33,8 @@ class GradioHandler:
         return gr.update()
 
     def run(self):
+        self.logger.info("启动 Gradio 界面...")
+        
         with gr.Blocks() as demo:
             gr.Markdown("## S2S Pipeline 服务监控")
             gr.Markdown("实时查看 s2s_pipeline 服务运行状态")
@@ -58,9 +60,20 @@ class GradioHandler:
                 }
             """)
 
+        # 使用回调来捕获 Gradio 的 URL 信息
+        def log_urls(url, **kwargs):
+            self.logger.info(f"Gradio 本地访问地址: {url}")
+            if "share_url" in kwargs:
+                self.logger.info(f"Gradio 公共访问地址: {kwargs['share_url']}")
+
         demo.queue()
         demo.launch(
             server_name=self.host,
             server_port=self.port,
-            share=True
+            share=True,
+            _frontend_reload_interval=False,
+            prevent_thread_lock=True,
+            show_api=False,
+            quiet=True,  # 抑制 Gradio 的默认日志
+            callbacks=[log_urls]  # 添加回调来记录 URL
         ) 
