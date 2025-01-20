@@ -244,6 +244,8 @@ def build_pipeline(
     lm_response_queue = queues_and_events["lm_response_queue"]
     log_queue = queues_and_events["log_queue"]
     
+    # 创建 handlers 列表并添加 GradioHandler
+    logger.info("正在初始化 Gradio 界面...")
     handlers = [
         GradioHandler(
             stop_event,
@@ -252,7 +254,11 @@ def build_pipeline(
             port=7860
         )
     ]
+    logger.warn("Gradio 界面初始化完成")
 
+    # 初始化其他组件
+    logger.info("正在初始化其他组件...")
+    
     if module_kwargs.mode == "local":
         from connections.local_audio_streamer import LocalAudioStreamer
 
@@ -451,6 +457,7 @@ def main():
     ) = parse_arguments()
 
     setup_logger(module_kwargs.log_level)
+    logger.info("=== S2S Pipeline 启动 ===")
 
     prepare_all_args(
         module_kwargs,
@@ -487,7 +494,10 @@ def main():
     )
 
     try:
+        logger.info("正在启动所有组件...")
         pipeline_manager.start()
+        logger.info("所有组件启动完成")
+        
         while not queues_and_events["stop_event"].is_set():
             try:
                 queues_and_events["stop_event"].wait(1)
