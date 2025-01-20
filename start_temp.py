@@ -51,19 +51,23 @@ def run_service():
         # 添加日志显示
         logs = gr.Textbox(label="服务日志", value="", lines=10)
         
+        # 创建一个隐藏的更新按钮
+        update_btn = gr.Button(visible=False)
+        update_btn.click(fn=update_logs, inputs=None, outputs=logs)
+        
+        # 添加自动点击脚本
+        demo.load(js="""
+            function() {
+                setInterval(function(){
+                    document.querySelector('button').click();
+                }, 1000);
+            }
+        """)
+        
         # 在后台线程启动服务
         service_thread = threading.Thread(target=lambda: start_s2s_service(log_queue))
         service_thread.daemon = True
         service_thread.start()
-        
-        # 定期更新日志
-        demo.load(
-            update_logs,
-            None,
-            logs,
-            every=1,
-            _js=False
-        )
     
     # 启动 Gradio 界面
     demo.queue()
