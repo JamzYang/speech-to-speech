@@ -57,7 +57,13 @@ def run_service():
         service_thread.start()
         
         # 定期更新日志
-        demo.load(fn=update_logs, inputs=None, outputs=logs).every(1)
+        demo.load(
+            update_logs,
+            None,
+            logs,
+            every=1,
+            _js=False
+        )
     
     # 启动 Gradio 界面
     demo.queue()
