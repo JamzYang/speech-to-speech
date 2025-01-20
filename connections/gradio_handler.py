@@ -3,6 +3,7 @@ import logging
 import queue
 import threading
 from typing import Optional
+import time
 
 class GradioHandler:
     def __init__(
@@ -18,6 +19,7 @@ class GradioHandler:
         self.host = host
         self.port = port
         self.logger = logging.getLogger(__name__)
+        self.ready_event = threading.Event()  # 添加就绪事件
 
     def update_logs(self):
         logs = []
@@ -60,20 +62,57 @@ class GradioHandler:
                 }
             """)
 
-        # 使用回调来捕获 Gradio 的 URL 信息
-        def log_urls(url, **kwargs):
-            self.logger.info(f"Gradio 本地访问地址: {url}")
-            if "share_url" in kwargs:
-                self.logger.info(f"Gradio 公共访问地址: {kwargs['share_url']}")
+        interface = demo.queue()
 
-        demo.queue()
-        demo.launch(
-            server_name=self.host,
-            server_port=self.port,
-            share=True,
-            _frontend_reload_interval=False,
-            prevent_thread_lock=True,
-            show_api=False,
-            quiet=True,  # 抑制 Gradio 的默认日志
-            callbacks=[log_urls]  # 添加回调来记录 URL
-        ) 
+        def start_gradio():
+            interface.launch(
+                server_name=self.host,
+                server_port=self.port,
+                share=True,
+                prevent_thread_lock=True,
+                show_api=False,
+                quiet=True
+            )
+            local_url = f"http://{self.host}:{self.port}"
+            self.logger.info(f"Gradio 本地访问地址: {local_url}")
+            if hasattr(interface, "share_url") and interface.share_url:
+                self.logger.info(f"Gradio 公共访问地址: {interface.share_url}")
+            self.ready_event.set()  # 标记 Gradio 已就绪
+
+        # 在新线程中启动 Gradio
+        gradio_thread = threading.Thread(target=start_gradio)
+        gradio_thread.daemon = True
+        gradio_thread.start()
+
+        # 等待 Gradio 完全启动
+        self.ready_event.wait(timeout=30)  # 设置超时时间为30秒
+        self.logger.info("Gradio 界面启动完成")
+
+def build_pipeline(
+    module_kwargs,
+    socket_receiver_kwargs,
+    # ... 其他参数保持不变 ...
+    queues_and_events,
+):
+    stop_event = queues_and_events["stop_event"]
+    # ... 其他代码保持不变 ...
+    
+    # 创建 handlers 列表并添加 GradioHandler
+    logger.info("正在初始化 Gradio 界面...")
+    gradio_handler = GradioHandler(
+        stop_event,
+        queue_out=log_queue,
+        host="0.0.0.0",
+        port=7860
+    )
+    
+    # 直接运行 Gradio（阻塞方式）
+    gradio_handler.run()
+    logger.info("Gradio 界面初始化完成")
+    
+    handlers = [gradio_handler]
+    
+    # 初始化其他组件
+    logger.info("正在初始化其他组件...")
+    
+    # ... 其余代码保持不变 ... 
